@@ -2,7 +2,7 @@
 <!-- saved from url=(0059)file:///C:/Users/danie/Downloads/factory-designer-v1.5.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Factory Designer v2.0</title>
+<title>Factory Designer v2.1</title>
 <style>
 :root{color-scheme:dark;--bg:#11151b;--panel:#191e26;--line:#303844;--text:#e9edf1;--mute:#9aa7b8;--orange:#ffb45d;--green:#72d6b1;--red:#ff8585;--node:#222b35;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -79,7 +79,7 @@ h2{font-size:11px;letter-spacing:1.8px;color:var(--mute);margin:18px 0 10px;text
 .tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl td,.tbl th{padding:3px 0}.tbl th{font-weight:400;color:var(--mute);text-align:right;font-size:10px}.tbl td+td{text-align:right}.pos{color:var(--green)}.neg{color:var(--red)}
 </style></head><body>
 <div id="app">
-<header><div class="brand" id="homeBtn" title="Home" style="cursor:pointer"><span>◈</span> FACTORY DESIGNER<small>v2.0</small><small id="sync" style="margin-left:10px"></small></div><div class="act"><button id="dbBtn"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg> Database</button><button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redo" title="Redo (Ctrl+Shift+Z)" disabled="">↷ Redo</button><button id="data">Save / Load</button></div></header>
+<header><div class="brand" id="homeBtn" title="Home" style="cursor:pointer"><span>◈</span> FACTORY DESIGNER<small>v2.1</small><small id="sync" style="margin-left:10px"></small></div><div class="act"><button id="dbBtn"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg> Database</button><button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redo" title="Redo (Ctrl+Shift+Z)" disabled="">↷ Redo</button><button id="data">Save / Load</button><button id="auth">Sign in with Google</button></div></header>
 <div id="tabs"><div class="tab on" data-id="t1"><span>Factory 1</span></div><button id="addTab" title="New tab">+</button></div>
 <div id="home" style="display:none"></div>
 <div class="layout">
@@ -135,7 +135,7 @@ h2{font-size:11px;letter-spacing:1.8px;color:var(--mute);margin:18px 0 10px;text
 <div id="modal" style="display: none;"></div>
 <script>
 'use strict';
-let fedit=null,ctxEl=null,hedit=null;
+let fedit=null,ctxEl=null,hedit=null,USER=null,baseAt=0,syncOK=false,pushT=0,pushing=false;
 const KEY='factory-designer-v1.1',OLD='factory-designer-v1',$=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>String(Math.round(n*10)/10),same=(a,b)=>String(a).trim().toLowerCase()===String(b).trim().toLowerCase();
@@ -152,7 +152,7 @@ let T=S.tabs.find(t=>t.id===S.active),C={N:{},E:[]},st=0,renaming=null,sel=new S
 const strip=(k,v)=>k==='flow'||k==='dem'||k==='sat'?undefined:v,cl=x=>JSON.parse(JSON.stringify(x,strip));
 const snapStr=()=>JSON.stringify({recipes:S.recipes,items:S.items,folders:S.folders,itemFolder:S.itemFolder,buildings:S.buildings,active:S.active,tabs:S.tabs.map(t=>({id:t.id,name:t.name,nodes:t.nodes,edges:t.edges}))},strip);
 let last=snapStr(),undoS=[],redoS=[];
-const persist=()=>{clearTimeout(st);st=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}pushRemote()},200)};
+const persist=()=>{clearTimeout(st);st=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}lsSet(LSD,'1');pushRemote()},200)};
 const save=()=>{const c=snapStr();if(c!==last){undoS.push(last);if(undoS.length>100)undoS.shift();redoS=[];last=c}hist();persist()};
 function hist(){$('#undo').disabled=!undoS.length;$('#redo').disabled=!redoS.length}
 function restore(str){const o=JSON.parse(str),vs={};S.tabs.forEach(t=>vs[t.id]=t.view);S.recipes=o.recipes;S.items=o.items||[];S.folders=o.folders||[];S.itemFolder=o.itemFolder||{};S.buildings=o.buildings;S.tabs=o.tabs.map(t=>({...t,view:vs[t.id]||{x:60,y:60,s:1}}));S.active=S.tabs.some(t=>t.id===o.active)?o.active:S.tabs[0].id;last=str;renderList();applyTab();hist();persist()}
@@ -404,15 +404,50 @@ $('#data').onclick=()=>{modal.innerHTML=`<div class="box"><h3>Save / Load</h3><p
 document.querySelectorAll('i[data-ic]').forEach(el=>el.outerHTML=ico(el.dataset.ic,16));
 pruneAll();last=snapStr();renderList();applyTab();hist();
 
-// ---- v1.6 cloud sync (Claude-hosted db; local-only when unavailable)
-let DB=null,syncOK=false,pushT=0;
+// ---- v2.1 cloud save (Firebase: Google sign-in + Firestore)
+const LSD=KEY+'-dirty',LSB=KEY+'-base',CID=uid();
 const setSync=m=>{const s=$('#sync');if(s)s.textContent=m};
-function pushRemote(){if(!DB||!syncOK)return;clearTimeout(pushT);pushT=setTimeout(async()=>{try{const data=JSON.stringify(S,strip);if(data.length>240000){setSync('☁ too big to sync');return}await DB.doc('app/design').set({v:1,savedAt:Date.now(),data});setSync('☁ synced')}catch(e){setSync('☁ sync failed')}},800)}
-(async()=>{try{if(!window.claude||!window.claude.use){setSync('local only');return}
- DB=await window.claude.use('db');if(!DB){setSync('local only');return}
- let snap;try{snap=await DB.doc('app/design').get()}catch(e){setSync('☁ unavailable');return}
- if(snap.exists){const o=migrate(JSON.parse(snap.data().data));if(o){ensureDB(o);S=o;nt.value=S.notes||'';T=S.tabs.find(x=>x.id===S.active);undoS=[];redoS=[];pruneAll();renderList();applyTab();if($('#home').style.display==='block')renderHome();last=snapStr();hist();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}}
- syncOK=true;setSync('☁ synced');if(!snap.exists&&(S.recipes.length||S.tabs.some(t=>t.nodes.length)))pushRemote()}catch(e){setSync('local only')}})();
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}},lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const hasData=()=>S.recipes.length>0||S.tabs.some(t=>t.nodes.length>0);
+const authUI=()=>{const b=$('#auth');if(b)b.textContent=USER?'Sign out':'Sign in with Google'};
+const homeOpen=()=>$('#home').style.display==='block';
+function applyRemote(d){let o;try{o=migrate(JSON.parse(d.data))}catch(e){o=null}
+ if(!o){toast('Could not read the online copy');return false}
+ ensureDB(o);if(!o.tabs.some(t=>t.id===o.active))o.active=o.tabs[0].id;
+ S=o;nt.value=S.notes||'';undoS=[];redoS=[];pruneAll();renderList();applyTab();last=snapStr();hist();
+ baseAt=d.savedAt;lsSet(KEY,JSON.stringify(S));lsSet(LSB,String(baseAt));lsSet(LSD,'0');if(homeOpen())renderHome();return true}
+function pushRemote(){if(!USER||!syncOK||!window.FB)return;clearTimeout(pushT);setSync('☁ saving…');pushT=setTimeout(()=>flush(),1200)}
+async function flush(force){clearTimeout(pushT);pushT=0;if(!USER||!syncOK||!window.FB)return;
+ if(pushing){pushT=setTimeout(()=>flush(force),600);return}
+ const data=JSON.stringify(S,strip);if(data.length>900000){setSync('☁ too big to save online');return}
+ pushing=true;const at=Math.max(Date.now(),baseAt+1);
+ try{const r=await FB.write({v:1,savedAt:at,by:CID,data},force?Infinity:baseAt);
+  if(r&&r.conflict){syncOK=false;askConflict(r.conflict,true);return}
+  baseAt=at;lsSet(LSB,String(at));if(JSON.stringify(S,strip)===data)lsSet(LSD,'0');setSync('☁ saved')}
+ catch(e){setSync('☁ offline — will retry')}
+ finally{pushing=false}}
+function askConflict(d,atPush){setSync('☁ waiting for your choice');
+ modal.innerHTML=`<div class="box"><h3>Your online copy is different</h3><p class="tiny">${atPush?'Another device saved a newer version.':'This browser has changes that were never saved online, and the online copy changed too.'} The online copy was saved ${esc(new Date(d.savedAt).toLocaleString())}.</p><div class="act2"><button id="cf-cloud">Use online copy</button><button id="cf-mine" class="primary">Keep this device's copy</button></div><p class="tiny">"Keep this device's copy" replaces the online one.</p></div>`;modal.style.display='flex';
+ modal.onclick=async e=>{const id=e.target.id;
+  if(id==='cf-cloud'){closeM();if(applyRemote(d)){syncOK=true;setSync('☁ saved')}}
+  else if(id==='cf-mine'){closeM();syncOK=true;baseAt=d.savedAt;await flush(true)}}}
+function startCloud(){FB.onUser(async u=>{USER=u;syncOK=false;authUI();
+  if(!u){setSync('☁ not signed in — saving on this device only');if(homeOpen())renderHome();return}
+  setSync('☁ loading…');
+  try{const d=await FB.read(),dirty=lsGet(LSD)==='1'&&hasData(),base=+(lsGet(LSB)||0);
+   if(!d){syncOK=true;baseAt=0;if(hasData())flush();else setSync('☁ signed in')}
+   else if(!dirty){if(applyRemote(d)){syncOK=true;setSync('☁ saved')}}
+   else if(d.savedAt<=base){syncOK=true;baseAt=d.savedAt;flush()}
+   else askConflict(d,false)}
+  catch(e){setSync('☁ couldn\'t reach the cloud')}
+  if(homeOpen())renderHome()})}
+$('#auth').onclick=async()=>{if(!window.FB){toast('Cloud save is still loading');return}
+ if(USER){if(pushT)await flush();await FB.signOut();toast('Signed out')}
+ else{try{await FB.signIn()}catch(e){toast('Sign-in failed: '+(e.code||e.message))}}};
+addEventListener('online',()=>pushRemote());
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&pushT)flush()});
+if(window.FB)startCloud();else addEventListener('fb-ready',startCloud,{once:true});
+setTimeout(()=>{if(!window.FB)setSync('☁ cloud unavailable — saving on this device only')},7000);
 
 // ---- v2.0 folders, home page, right-click recipe search
 const fcount=id=>S.recipes.filter(r=>r.folder===id).length+Object.values(S.itemFolder).filter(v=>v===id).length;
@@ -474,8 +509,8 @@ function renderHome(){const st=S.tabs.map(tabStats),tot={pw:0,mc:0,by:{},raw:{}}
  ${[0,2,4].map(d=>`<circle r="6" fill="#ffd9a1"><animateMotion dur="7s" begin="${d}s" repeatCount="indefinite" path="${belt}"/></circle>`).join('')}</svg>`;
  const cards=S.tabs.map((t,i)=>{const s=st[i];return`<div class="fc" data-t="${t.id}">${preview(t)}<div class="fb">${hedit===t.id?`<input id="hn" value="${esc(t.name)}">`:`<b>${esc(t.name)}</b>`}<small>${s.blocks} blocks · ${fmt(s.pw)} MW · ${s.mc} machines</small></div><div class="fa"><button class="primary" data-open="${t.id}">Open</button><button data-hren="${t.id}" title="Rename">${ico('edit',14)}</button><button data-hdel="${t.id}" ${S.tabs.length>1?'':'disabled'} title="Delete factory">${ico('trash',14)}</button></div></div>`}).join('');
  const by=Object.entries(tot.by).sort((a,b)=>b[1]-a[1]).map(([b,n])=>`<tr><td>${esc(b)}</td><td>${n}</td></tr>`).join(''),raw=Object.entries(tot.raw).sort().map(([n,v])=>`<tr><td>${esc(n)}</td><td>${fmt(v)}/min</td></tr>`).join('');
- $('#home').innerHTML=`<div class="hm"><div class="hero">${art}<div class="ht"><h1>FACTORY DESIGNER <small>v2.0</small></h1><p>Designed by <b class="by">Denial</b> &amp; Claude</p></div></div>
- <div class="qs"><button class="primary" id="h-new">+ New factory</button><button id="h-cont">Continue · ${esc(T.name)}</button><button id="h-imp">Import / Export</button><button id="h-db">Database</button></div>
+ $('#home').innerHTML=`<div class="hm"><div class="hero">${art}<div class="ht"><h1>FACTORY DESIGNER <small>v2.1</small></h1><p>Designed by <b class="by">Denial</b> &amp; Claude</p></div></div>
+ <div class="qs"><button class="primary" id="h-new">+ New factory</button><button id="h-cont">Continue · ${esc(T.name)}</button><button id="h-imp">Import / Export</button><button id="h-db">Database</button>${USER?'':'<button class="primary" id="h-signin">Sign in with Google</button>'}</div><p class="tiny">${USER?'Signed in as '+esc(USER.email||USER.displayName||'your Google account')+' · your work saves online automatically':'Not signed in: your work saves only in this browser. Sign in to keep it online and use it on any device.'}</p>
  <div class="hg"><section><h2>Your factories</h2><div class="fcs">${cards}</div></section><section><h2>Totals · all factories</h2><div class="stat"><span>Power</span><span class="value">${fmt(tot.pw)} MW</span></div><div class="stat"><span>Machines</span><b>${tot.mc}</b></div><h2>Buildings</h2>${by?`<table class="tbl">${by}</table>`:'<p class="tiny">No machines yet.</p>'}<h2>Raw inputs needed</h2>${raw?`<table class="tbl">${raw}</table>`:'<p class="tiny">None.</p>'}</section></div><p class="tiny" style="margin-top:22px">A feedback option will come once the app is shared with other people.</p></div>`;
  if(hedit){const i=$('#hn');if(i){i.focus();i.select();const d=()=>{if(!hedit)return;const t=S.tabs.find(x=>x.id===hedit);t.name=i.value.trim()||t.name;hedit=null;renderTabs();renderHome();save()};i.onblur=d;i.onkeydown=e=>{if(e.key==='Enter')i.blur();if(e.key==='Escape'){hedit=null;renderHome()}}}}}
 const showHome=()=>{closeCtx();renderHome();$('#home').style.display='block'},hideHome=()=>{$('#home').style.display='none'};
@@ -486,9 +521,25 @@ $('#home').onclick=e=>{const t=e.target,g=s=>t.closest(s);
  else if(t.id==='h-new'){const n={id:uid(),name:'Factory '+(S.tabs.length+1),nodes:[],edges:[],view:{x:60,y:60,s:1}};S.tabs.push(n);S.active=n.id;applyTab();save();hideHome()}
  else if(t.id==='h-cont')hideHome();
  else if(t.id==='h-imp')$('#data').click();
+ else if(t.id==='h-signin')$('#auth').click();
  else if(t.id==='h-db')$('#dbBtn').click();
  else if(g('.fc')&&!g('input')&&!g('button')){S.active=g('.fc').dataset.t;applyTab();save();hideHome()}};
 $('#homeBtn').onclick=showHome;
 showHome();
+</script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app=initializeApp({apiKey:"AIzaSyDoVtB29JNJjll-1DaihJGVgYEzzEyZDXM",authDomain:"denial-satisfactory-planner.firebaseapp.com",projectId:"denial-satisfactory-planner",storageBucket:"denial-satisfactory-planner.firebasestorage.app",messagingSenderId:"908274405905",appId:"1:908274405905:web:bc8ca026e460df4f1cd7b0"});
+const auth=getAuth(app),db=getFirestore(app),ref=()=>doc(db,"users",auth.currentUser.uid,"saves","main");
+window.FB={
+ onUser:cb=>onAuthStateChanged(auth,cb),
+ signIn:()=>signInWithPopup(auth,new GoogleAuthProvider()),
+ signOut:()=>signOut(auth),
+ read:async()=>{const s=await getDoc(ref());return s.exists()?s.data():null},
+ write:(payload,base)=>runTransaction(db,async tx=>{const s=await tx.get(ref());if(s.exists()&&s.data().savedAt>base)return{conflict:s.data()};tx.set(ref(),payload);return{ok:true}})
+};
+window.dispatchEvent(new Event("fb-ready"));
 </script>
 </body></html>
