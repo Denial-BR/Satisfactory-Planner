@@ -80,7 +80,7 @@ h2{font-size:11px;letter-spacing:1.8px;color:var(--mute);margin:18px 0 10px;text
 .tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl td,.tbl th{padding:3px 0}.tbl th{font-weight:400;color:var(--mute);text-align:right;font-size:10px}.tbl td+td{text-align:right}.pos{color:var(--green)}.neg{color:var(--red)}
 </style></head><body>
 <div id="app">
-<header><div class="brand" id="homeBtn" title="Home" style="cursor:pointer"><span>◈</span> FACTORY DESIGNER<small>v2.2</small><small id="sync" style="margin-left:10px"></small></div><div class="act"><button id="dbBtn"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg> Database</button><button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redo" title="Redo (Ctrl+Shift+Z)" disabled="">↷ Redo</button><button id="data">Save / Load</button><button id="auth">Sign in with Google</button></div></header>
+<header><div class="brand" id="homeBtn" title="Home" style="cursor:pointer"><span>◈</span> FACTORY DESIGNER<small>v3.0</small><small id="sync" style="margin-left:10px"></small></div><div class="act"><button id="dbBtn"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg> Database</button><button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button><button id="redo" title="Redo (Ctrl+Shift+Z)" disabled="">↷ Redo</button><button id="data">Save / Load</button><button id="auth">Sign in with Google</button></div></header>
 <div id="tabs"><div class="tab on" data-id="t1"><span>Factory 1</span></div><button id="addTab" title="New tab">+</button></div>
 <div id="home" style="display:none"></div>
 <div class="layout">
@@ -137,7 +137,11 @@ h2{font-size:11px;letter-spacing:1.8px;color:var(--mute);margin:18px 0 10px;text
 <script>
 'use strict';
 let fedit=null,ctxEl=null,hedit=null,USER=null,baseAt=0,syncOK=false,pushT=0,pushing=false,hlOn=true,CH=null;
-const KEY='factory-designer-v1.1',OLD='factory-designer-v1',$=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+let IX=null;try{IX=JSON.parse(localStorage.getItem('fd3-index'))}catch(e){}
+if(!IX||!Array.isArray(IX.worlds)||!IX.worlds.length)IX={cur:'w1',worlds:[{id:'w1',name:'World 1'}]};
+if(!IX.worlds.some(w=>w.id===IX.cur))IX.cur=IX.worlds[0].id;
+const saveIX=()=>{try{localStorage.setItem('fd3-index',JSON.stringify(IX))}catch(e){}};saveIX();
+const WID=IX.cur,KEY='fd3-w-'+WID,OLD='factory-designer-v1',LEG=WID==='w1'?['factory-designer-v1.1',OLD]:[];window.WID=WID;const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>String(Math.round(n*10)/10),same=(a,b)=>String(a).trim().toLowerCase()===String(b).trim().toLowerCase();
 const fresh=()=>({recipes:[],items:[],folders:[],itemFolder:{},buildings:{},tabs:[{id:'t1',name:'Factory 1',nodes:[],edges:[],view:{x:60,y:60,s:1}}],active:'t1',notes:''});
@@ -148,7 +152,7 @@ function migrate(o){if(!o||typeof o!=='object'||!Array.isArray(o.recipes))return
  return null}
 function ensureDB(o){o.items=o.items||[];o.folders=o.folders||[];o.itemFolder=o.itemFolder||{};o.recipes.forEach(r=>[...r.inputs,...r.outputs].forEach(p=>{if(!o.items.some(x=>same(x,p.type)))o.items.push(p.type)}))}
 const itemList=()=>[...S.items].sort((a,b)=>a.localeCompare(b));
-let S=null;for(const k of[KEY,OLD]){try{S=migrate(JSON.parse(localStorage.getItem(k)))}catch(e){}if(S)break}S=S||fresh();ensureDB(S);
+let S=null;for(const k of[KEY,...LEG]){try{S=migrate(JSON.parse(localStorage.getItem(k)))}catch(e){}if(S)break}S=S||fresh();ensureDB(S);
 let T=S.tabs.find(t=>t.id===S.active),C={N:{},E:[]},st=0,renaming=null,sel=new Set(),clip=null,selMode=false,mouse=null;
 const strip=(k,v)=>k==='flow'||k==='dem'||k==='sat'?undefined:v,cl=x=>JSON.parse(JSON.stringify(x,strip));
 const snapStr=()=>JSON.stringify({recipes:S.recipes,items:S.items,folders:S.folders,itemFolder:S.itemFolder,buildings:S.buildings,active:S.active,tabs:S.tabs.map(t=>({id:t.id,name:t.name,nodes:t.nodes,edges:t.edges}))},strip);
@@ -432,10 +436,13 @@ function askConflict(d,atPush){setSync('☁ waiting for your choice');
  modal.onclick=async e=>{const id=e.target.id;
   if(id==='cf-cloud'){closeM();if(applyRemote(d)){syncOK=true;setSync('☁ saved')}}
   else if(id==='cf-mine'){closeM();syncOK=true;baseAt=d.savedAt;await flush(true)}}}
+async function syncIX(){try{const r=await FB.ixRead(),g=new Set([...(IX.gone||[]),...((r&&r.gone)||[])]);IX.gone=[...g];
+ if(r&&Array.isArray(r.list))r.list.forEach(w=>{if(!g.has(w.id)&&!IX.worlds.some(v=>v.id===w.id))IX.worlds.push(w)});
+ IX.worlds=IX.worlds.filter(w=>!g.has(w.id)||w.id===WID);saveIX();await FB.ixWrite({list:IX.worlds,gone:IX.gone,at:Date.now()})}catch(e){}}
 function startCloud(){FB.onUser(async u=>{USER=u;syncOK=false;authUI();
   if(!u){setSync('☁ not signed in — saving on this device only');if(homeOpen())renderHome();return}
   setSync('☁ loading…');
-  try{const d=await FB.read(),dirty=lsGet(LSD)==='1'&&hasData(),base=+(lsGet(LSB)||0);
+  try{await syncIX();let d=await FB.read();if(!d&&WID==='w1')d=await FB.legacy();const dirty=(lsGet(LSD)==='1'||(WID==='w1'&&lsGet('factory-designer-v1.1-dirty')==='1'))&&hasData(),base=+(lsGet(LSB)||0);
    if(!d){syncOK=true;baseAt=0;if(hasData())flush();else setSync('☁ signed in')}
    else if(!dirty){if(applyRemote(d)){syncOK=true;setSync('☁ saved')}}
    else if(d.savedAt<=base){syncOK=true;baseAt=d.savedAt;flush()}
@@ -508,18 +515,40 @@ function renderHome(){const st=S.tabs.map(tabStats),tot={pw:0,mc:0,by:{},raw:{}}
  ${mach(110,62,'miner')}${mach(390,62,'smelter')}${mach(680,40,'assembler')}
  <g transform="translate(790,12)" style="color:#69af9b;opacity:.55"><g><animateTransform attributeName="transform" type="rotate" from="0 28 28" to="360 28 28" dur="14s" repeatCount="indefinite"/>${ico('assembler',56)}</g></g>
  ${[0,2,4].map(d=>`<circle r="6" fill="#ffd9a1"><animateMotion dur="7s" begin="${d}s" repeatCount="indefinite" path="${belt}"/></circle>`).join('')}</svg>`;
- const cards=S.tabs.map((t,i)=>{const s=st[i];return`<div class="fc" data-t="${t.id}">${preview(t)}<div class="fb">${hedit===t.id?`<input id="hn" value="${esc(t.name)}">`:`<b>${esc(t.name)}</b>`}<small>${s.blocks} blocks · ${fmt(s.pw)} MW · ${s.mc} machines</small>${s.raw.length?`<small>Needs ${s.raw.slice(0,3).map(([n,v])=>esc(n)+' '+fmt(v)+'/min').join(' · ')}${s.raw.length>3?' · +'+(s.raw.length-3)+' more':''}</small>`:''}</div><div class="fa"><button class="primary" data-open="${t.id}">Open</button><button data-hdup="${t.id}" title="Duplicate factory">⧉</button><button data-hren="${t.id}" title="Rename">${ico('edit',14)}</button><button data-hdel="${t.id}" ${S.tabs.length>1?'':'disabled'} title="Delete factory">${ico('trash',14)}</button></div></div>`}).join('');
+ const cards=S.tabs.map((t,i)=>{const s=st[i];return`<div class="fc" data-t="${t.id}">${preview(t)}<div class="fb">${hedit===t.id?`<input id="hn" value="${esc(t.name)}">`:`<b>${esc(t.name)}</b>`}<small>${s.blocks} blocks · ${fmt(s.pw)} MW · ${s.mc} machines</small>${s.raw.length?`<small>Needs ${s.raw.slice(0,3).map(([n,v])=>esc(n)+' '+fmt(v)+'/min').join(' · ')}${s.raw.length>3?' · +'+(s.raw.length-3)+' more':''}</small>`:''}</div><div class="fa"><button class="primary" data-open="${t.id}">Open</button><button data-hdup="${t.id}" title="Duplicate factory">⧉</button>${IX.worlds.length>1?`<button data-hcp="${t.id}" title="Copy to another world">➜</button>`:''}<button data-hren="${t.id}" title="Rename">${ico('edit',14)}</button><button data-hdel="${t.id}" ${S.tabs.length>1?'':'disabled'} title="Delete factory">${ico('trash',14)}</button></div></div>`}).join('');
  const by=Object.entries(tot.by).sort((a,b)=>b[1]-a[1]).map(([b,n])=>`<tr><td>${esc(b)}</td><td>${n}</td></tr>`).join(''),raw=Object.entries(tot.raw).sort().map(([n,v])=>`<tr><td>${esc(n)}</td><td>${fmt(v)}/min</td></tr>`).join('');
- $('#home').innerHTML=`<div class="hm"><div class="hero">${art}<div class="ht"><h1>FACTORY DESIGNER <small>v2.2</small></h1><p>Designed by <b class="by">Denial</b> &amp; Claude</p></div></div>
+ $('#home').innerHTML=`<div class="hm"><div class="hero">${art}<div class="ht"><h1>FACTORY DESIGNER <small>v3.0</small></h1><p>Designed by <b class="by">Denial</b> &amp; Claude</p></div></div>
  <div class="qs"><button class="primary" id="h-new">+ New factory</button><button id="h-cont">Continue · ${esc(T.name)}</button><button id="h-imp">Import / Export</button><button id="h-db">Database</button>${USER?'':'<button class="primary" id="h-signin">Sign in with Google</button>'}</div><p class="tiny">${USER?'Signed in as '+esc(USER.email||USER.displayName||'your Google account')+' · your work saves online automatically':'Not signed in: your work saves only in this browser. Sign in to keep it online and use it on any device.'}</p>
- <div class="hg"><section><h2>Your factories</h2><div class="fcs">${cards}</div></section><section><h2>Totals · all factories</h2><div class="stat"><span>Power</span><span class="value">${fmt(tot.pw)} MW</span></div><div class="stat"><span>Machines</span><b>${tot.mc}</b></div><h2>Buildings</h2>${by?`<table class="tbl">${by}</table>`:'<p class="tiny">No machines yet.</p>'}<h2>Raw inputs needed</h2>${raw?`<table class="tbl">${raw}</table>`:'<p class="tiny">None.</p>'}</section></div><p class="tiny" style="margin-top:22px">A feedback option will come once the app is shared with other people.</p></div>`;
+ ${worldsHTML()}<div class="hg"><section><h2>Your factories</h2><div class="fcs">${cards}</div></section><section><h2>Totals · all factories</h2><div class="stat"><span>Power</span><span class="value">${fmt(tot.pw)} MW</span></div><div class="stat"><span>Machines</span><b>${tot.mc}</b></div><h2>Buildings</h2>${by?`<table class="tbl">${by}</table>`:'<p class="tiny">No machines yet.</p>'}<h2>Raw inputs needed</h2>${raw?`<table class="tbl">${raw}</table>`:'<p class="tiny">None.</p>'}</section></div><p class="tiny" style="margin-top:22px">A feedback option will come once the app is shared with other people.</p></div>`;
  if(hedit){const i=$('#hn');if(i){i.focus();i.select();const d=()=>{if(!hedit)return;const t=S.tabs.find(x=>x.id===hedit);t.name=i.value.trim()||t.name;hedit=null;renderTabs();renderHome();save()};i.onblur=d;i.onkeydown=e=>{if(e.key==='Enter')i.blur();if(e.key==='Escape'){hedit=null;renderHome()}}}}}
+let wedit=null;
+const wInfo=id=>{if(id===WID)return{f:S.tabs.length,r:S.recipes.length,pw:S.tabs.reduce((a,t)=>a+tabStats(t).pw,0)};try{const o=JSON.parse(localStorage.getItem('fd3-w-'+id));return o&&o.tabs?{f:o.tabs.length,r:o.recipes.length}:{f:0,r:0}}catch(e){return{f:0,r:0}}};
+const worldsHTML=()=>`<h2 style="margin-top:18px">Worlds</h2><div class="fcs">${IX.worlds.map(w=>{const i=wInfo(w.id),c=w.id===WID;return`<div class="fc" style="${c?'outline:2px solid #ffb454':''}"><div class="fb">${wedit===w.id?`<input id="wn" value="${esc(w.name)}">`:`<b>${esc(w.name)}${c?' · current':''}</b>`}<small>${i.f} factories · ${i.r} recipes${i.pw!=null?' · '+fmt(i.pw)+' MW':''}</small></div><div class="fa"><button class="primary" data-wopen="${w.id}" ${c?'disabled':''}>Open</button><button data-wren="${w.id}" title="Rename">${ico('edit',14)}</button><button data-wdel="${w.id}" ${c||IX.worlds.length<2?'disabled':''}>${ico('trash',14)}</button></div></div>`}).join('')}</div><div class="qs"><button id="h-wnew">+ New world</button></div>`;
+const _rh=renderHome;renderHome=function(){_rh();if(wedit){const i=$('#wn');if(i){i.focus();i.select();const d=()=>{if(!wedit)return;const w=IX.worlds.find(x=>x.id===wedit);w.name=i.value.trim()||w.name;wedit=null;saveIX();if(USER)syncIX();renderHome()};i.onblur=d;i.onkeydown=e=>{if(e.key==='Enter')i.blur();if(e.key==='Escape'){wedit=null;renderHome()}}}}};
+async function goWorld(id){clearTimeout(st);try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(pushT)await flush();IX.cur=id;saveIX();location.reload()}
+function newWorld(){const id=uid(),o=fresh();o.recipes=cl(S.recipes);o.items=[...S.items];o.folders=cl(S.folders);o.itemFolder={...S.itemFolder};o.buildings=cl(S.buildings);
+ IX.worlds.push({id,name:'World '+(IX.worlds.length+1)});try{localStorage.setItem('fd3-w-'+id,JSON.stringify(o));localStorage.setItem('fd3-w-'+id+'-dirty','1')}catch(e){}saveIX();goWorld(id)}
+function delWorld(id){IX.worlds=IX.worlds.filter(w=>w.id!==id);IX.gone=[...(IX.gone||[]),id];try{localStorage.removeItem('fd3-w-'+id)}catch(e){}saveIX();if(USER&&window.FB)syncIX()}
+function copyMenu(b){const r=b.getBoundingClientRect(),tid=b.dataset.hcp,el=popup(r.left,r.bottom+4,'<div class="tiny" style="padding:4px 8px">Copy to…</div>'+IX.worlds.filter(w=>w.id!==WID).map(w=>`<button data-cpw="${w.id}">${esc(w.name)}</button>`).join(''));
+ el.onclick=e=>{const w=e.target.dataset.cpw;if(w){copyTab(tid,w);closeCtx()}}}
+function copyTab(tid,wid){const t=S.tabs.find(x=>x.id===tid);let o=null;try{o=migrate(JSON.parse(localStorage.getItem('fd3-w-'+wid)))}catch(e){}
+ if(!o){toast('Open that world once first, then copy again');return}
+ const n=cl(t),ids=new Set(n.nodes.map(x=>x.recipeId));n.id=uid();
+ S.recipes.forEach(r=>{if(ids.has(r.id)&&!o.recipes.some(x=>x.id===r.id))o.recipes.push(cl(r))});
+ Object.keys(S.buildings).forEach(b=>{if(!o.buildings[b])o.buildings[b]=cl(S.buildings[b])});
+ o.tabs.push(n);ensureDB(o);try{localStorage.setItem('fd3-w-'+wid,JSON.stringify(o));localStorage.setItem('fd3-w-'+wid+'-dirty','1')}catch(e){}
+ toast('Copied "'+t.name+'" to '+IX.worlds.find(w=>w.id===wid).name)}
 const showHome=()=>{closeCtx();renderHome();$('#home').style.display='block'},hideHome=()=>{$('#home').style.display='none'};
 $('#home').onclick=e=>{const t=e.target,g=s=>t.closest(s);
  if(g('[data-open]')){S.active=g('[data-open]').dataset.open;applyTab();save();hideHome()}
  else if(g('[data-hdup]')){dupTab(g('[data-hdup]').dataset.hdup)}
  else if(g('[data-hren]')){hedit=g('[data-hren]').dataset.hren;renderHome()}
  else if(g('[data-hdel]')){const b=g('[data-hdel]'),id=b.dataset.hdel;armed(b,()=>{S.tabs=S.tabs.filter(x=>x.id!==id);if(S.active===id)S.active=S.tabs[0].id;applyTab();save();renderHome()})}
+ else if(g('[data-wopen]'))goWorld(g('[data-wopen]').dataset.wopen);
+ else if(g('[data-wren]')){wedit=g('[data-wren]').dataset.wren;renderHome()}
+ else if(g('[data-wdel]')){const b=g('[data-wdel]'),id=b.dataset.wdel;armed(b,()=>{delWorld(id);renderHome()})}
+ else if(g('[data-hcp]'))copyMenu(g('[data-hcp]'));
+ else if(t.id==='h-wnew')newWorld();
  else if(t.id==='h-new'){const n={id:uid(),name:'Factory '+(S.tabs.length+1),nodes:[],edges:[],view:{x:60,y:60,s:1}};S.tabs.push(n);S.active=n.id;applyTab();save();hideHome()}
  else if(t.id==='h-cont')hideHome();
  else if(t.id==='h-imp')$('#data').click();
@@ -556,13 +585,16 @@ $('#orgBtn').onclick=e=>{if(T.nodes.length<2)return;const b=e.currentTarget.getB
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,doc,getDoc,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,doc,getDoc,setDoc,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app=initializeApp({apiKey:"AIzaSyDoVtB29JNJjll-1DaihJGVgYEzzEyZDXM",authDomain:"denial-satisfactory-planner.firebaseapp.com",projectId:"denial-satisfactory-planner",storageBucket:"denial-satisfactory-planner.firebasestorage.app",messagingSenderId:"908274405905",appId:"1:908274405905:web:bc8ca026e460df4f1cd7b0"});
-const auth=getAuth(app),db=getFirestore(app),ref=()=>doc(db,"users",auth.currentUser.uid,"saves","main");
+const auth=getAuth(app),db=getFirestore(app),ref=()=>doc(db,"users",auth.currentUser.uid,"saves",window.WID),xref=n=>doc(db,"users",auth.currentUser.uid,"saves",n);
 window.FB={
  onUser:cb=>onAuthStateChanged(auth,cb),
  signIn:()=>signInWithPopup(auth,new GoogleAuthProvider()),
  signOut:()=>signOut(auth),
+ legacy:async()=>{const s=await getDoc(xref('main'));return s.exists()?s.data():null},
+ ixRead:async()=>{const s=await getDoc(xref('_index'));return s.exists()?s.data():null},
+ ixWrite:o=>setDoc(xref('_index'),o),
  read:async()=>{const s=await getDoc(ref());return s.exists()?s.data():null},
  write:(payload,base)=>runTransaction(db,async tx=>{const s=await tx.get(ref());if(s.exists()&&s.data().savedAt>base)return{conflict:s.data()};tx.set(ref(),payload);return{ok:true}})
 };
